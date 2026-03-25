@@ -71,4 +71,4 @@ fi
 loginctl enable-linger "$TARGET_USER"
 info "Linger enabled for $TARGET_USER."
 
-info "Prerequisites done. Now run docker-rootless-install.sh as $TARGET_USER."
+info "Prerequisites done. Now run 01inst as $TARGET_USER."

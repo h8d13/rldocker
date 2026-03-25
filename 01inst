@@ -31,4 +31,4 @@ export XDG_RUNTIME_DIR="/run/user/${USER_UID}"
 info "Running get.docker.com/rootless installer..."
 curl -fsSL https://get.docker.com/rootless | sh
 
-info "Install complete. Run docker-rootless-run.sh to start the daemon."
+info "Install complete. Run 02start to start the daemon."
