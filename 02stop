@@ -8,8 +8,9 @@ error() { echo "[ERROR] $*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] && error "Run as the rootless user, not root."
 
-info "Stopping and disabling docker user service..."
-systemctl --user disable --now docker
-
-info "Docker rootless stopped."
-info "To start again: ./docker-rootless-run.sh"
+if systemctl --user is-active --quiet docker; then
+    info "Stopping and disabling docker user service..."
+    systemctl --user disable --now docker && info "Docker rootless stopped."
+else
+    info "Docker user service is not running."
+fi

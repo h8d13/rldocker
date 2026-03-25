@@ -28,12 +28,10 @@ done
 
 # ── Start and enable the user Docker service ──────────────────────────────────
 
-info "Enabling and starting docker user service..."
-systemctl --user enable --now docker
+if systemctl --user is-active --quiet docker; then
+    info "Docker user service is already running."
+else
+    info "Enabling and starting docker user service..."
+    systemctl --user enable --now docker && info "Docker rootless started."
+fi
 
-info "Docker rootless is running."
-info ""
-info "To persist these env vars, add the following to your shell profile:"
-info ""
-info "    export PATH=\$HOME/bin:\$PATH"
-info "    export DOCKER_HOST=unix:///run/user/${USER_UID}/docker.sock"
