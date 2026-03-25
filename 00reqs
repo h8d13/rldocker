@@ -1,0 +1,74 @@
+#!/bin/bash
+set -euo pipefail
+
+# Docker Rootless System Prerequisites (run as root)
+# Installs uidmap, configures subuid/subgid, disables system Docker.
+
+TARGET_USER="${1:-$(logname 2>/dev/null || echo "$SUDO_USER")}"
+SUBUID_START=231072
+SUBUID_COUNT=65536
+
+info()  { echo "[INFO]  $*"; }
+error() { echo "[ERROR] $*" >&2; exit 1; }
+
+[[ $EUID -eq 0 ]] || error "Run as root (sudo)."
+[[ -n "$TARGET_USER" ]] || error "Could not determine target user. Pass username as argument: sudo $0 <user>"
+id "$TARGET_USER" &>/dev/null || error "User '$TARGET_USER' does not exist."
+
+info "Configuring prerequisites for: $TARGET_USER"
+
+# ── 1. Install uidmap (shadow) ────────────────────────────────────────────────
+
+info "Installing shadow..."
+pacman -Sy --noconfirm --needed shadow
+
+for bin in newuidmap newgidmap; do
+    command -v "$bin" &>/dev/null || error "Required binary not found after install: $bin"
+done
+info "newuidmap/newgidmap present."
+
+# ── 2. Configure /etc/subuid and /etc/subgid ─────────────────────────────────
+
+configure_subid() {
+    local file="$1" label="$2"
+
+    if grep -q "^${TARGET_USER}:" "$file" 2>/dev/null; then
+        local count
+        count=$(awk -F: '{sum += $3} END {print sum+0}' \
+                <(grep "^${TARGET_USER}:" "$file"))
+        if [[ $count -ge 65536 ]]; then
+            info "$label: $TARGET_USER already has $count subordinate IDs   skipping."
+            return
+        fi
+    fi
+
+    local start=$SUBUID_START
+    while awk -F: -v s="$start" -v e="$((start + SUBUID_COUNT - 1))" \
+              '$2 <= e && ($2 + $3 - 1) >= s {found=1} END {exit !found}' \
+              "$file" 2>/dev/null; do
+        start=$((start + SUBUID_COUNT))
+    done
+
+    echo "${TARGET_USER}:${start}:${SUBUID_COUNT}" >> "$file"
+    info "$label: added ${TARGET_USER}:${start}:${SUBUID_COUNT}."
+}
+
+configure_subid /etc/subuid subuid
+configure_subid /etc/subgid subgid
+
+# ── 3. Disable system Docker daemon ──────────────────────────────────────────
+
+if systemctl is-active --quiet docker 2>/dev/null || \
+   systemctl is-enabled --quiet docker 2>/dev/null; then
+    info "Disabling system Docker daemon..."
+    systemctl disable --now docker.service docker.socket 2>/dev/null || true
+    rm -f /var/run/docker.sock
+    info "Removed /var/run/docker.sock."
+fi
+
+# ── 4. Enable linger ──────────────────────────────────────────────────────────
+
+loginctl enable-linger "$TARGET_USER"
+info "Linger enabled for $TARGET_USER."
+
+info "Prerequisites done. Now run docker-rootless-install.sh as $TARGET_USER."

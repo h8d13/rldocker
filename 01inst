@@ -1,0 +1,34 @@
+#!/bin/bash
+set -euo pipefail
+
+# Docker Rootless   Install (run as the target user, NOT root)
+[[ $EUID -eq 0 ]] && error "Do not run as root. Run as the user who will own the rootless daemon."
+
+# Downloads and runs the official rootless Docker installer.
+info()  { echo "[INFO]  $*"; }
+error() { echo "[ERROR] $*" >&2; exit 1; }
+
+USER_UID=$(id -u)
+
+# ── Check prerequisites ───────────────────────────────────────────────────────
+
+command -v curl &>/dev/null || error "curl not found."
+command -v newuidmap &>/dev/null || error "newuidmap not found run docker-rootless-prereqs.sh first (as root)."
+command -v newgidmap &>/dev/null || error "newgidmap not found run docker-rootless-prereqs.sh first (as root)."
+
+for file in /etc/subuid /etc/subgid; do
+    count=$(awk -F: -v u="$USER" '$1 == u {sum += $3} END {print sum+0}' "$file")
+    [[ $count -ge 65536 ]] \
+        || error "$file: $USER has only $count subordinate IDs (need ≥65536). Run docker-rootless-prereqs.sh first."
+done
+
+export XDG_RUNTIME_DIR="/run/user/${USER_UID}"
+[[ -d "$XDG_RUNTIME_DIR" ]] \
+    || error "XDG_RUNTIME_DIR $XDG_RUNTIME_DIR does not exist is the user session active?"
+
+# ── Run official rootless installer ──────────────────────────────────────────
+
+info "Running get.docker.com/rootless installer..."
+curl -fsSL https://get.docker.com/rootless | sh
+
+info "Install complete. Run docker-rootless-run.sh to start the daemon."
