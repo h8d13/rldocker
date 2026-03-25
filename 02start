@@ -7,7 +7,7 @@ set -euo pipefail
 info()  { echo "[INFO]  $*"; }
 error() { echo "[ERROR] $*" >&2; exit 1; }
 
-[[ $EUID -eq 0 ]] && error "Do not run as root. Run as the rootless Docker user."
+[[ $EUID -eq 0 ]] && error "Do not run as root. Run as the rootless user."
 
 USER_UID=$(id -u)
 export XDG_RUNTIME_DIR="/run/user/${USER_UID}"
@@ -16,15 +16,6 @@ export PATH="$HOME/bin:$PATH"
 
 info "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
 info "DOCKER_HOST=$DOCKER_HOST"
-
-# ── Check deps ────────────────────────────────────────────────────────────────
-# ~/bin is where get.docker.com/rootless installs the binaries
-
-for bin in docker systemctl; do
-    command -v "$bin" &>/dev/null || error "Required binary not found: $bin"
-done
-[[ -x "$HOME/bin/dockerd-rootless.sh" ]] \
-    || error "dockerd-rootless.sh not found in ~/bin   did you run the setup script?"
 
 # ── Start and enable the user Docker service ──────────────────────────────────
 
