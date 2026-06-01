@@ -6,7 +6,7 @@ unprivileged user via subuid/subgid mapping.
 ## Setup
 
 ```
-sudo ./00reqs <user>   # root: uidmap, subuid/subgid, disable system docker, linger
+sudo ./00reqs 		   # root: uidmap, subuid/subgid, disable system docker, linger
 ./01inst               # user: official get.docker.com/rootless installer
 ./02start              # user: start the per-user daemon
 ./02stop               # user: stop it
