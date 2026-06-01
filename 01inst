@@ -28,6 +28,13 @@ export XDG_RUNTIME_DIR="/run/user/${USER_UID}"
 
 # ── Run official rootless installer ──────────────────────────────────────────
 
+# XDG-correct install dir; upstream defaults to ~/bin which is honestly ew.
+# convention is ~/.local/bin
+
+export DOCKER_BIN="${DOCKER_BIN:-$HOME/.local/bin}"
+mkdir -p "$DOCKER_BIN"
+
+info "Installing to DOCKER_BIN=$DOCKER_BIN"
 info "Running get.docker.com/rootless installer..."
 curl -fsSL https://get.docker.com/rootless | sh
 
