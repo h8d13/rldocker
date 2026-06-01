@@ -55,6 +55,7 @@ configure_subid() {
 
 configure_subid /etc/subuid subuid
 configure_subid /etc/subgid subgid
+modprobe ip_tables
 
 # ── 3. Disable system Docker daemon ──────────────────────────────────────────
 
