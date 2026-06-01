@@ -1,16 +1,31 @@
 #!/bin/bash
 set -euo pipefail
 
-# Stops and disables the rootless user service.
+# Docker Rootless   Stop (run as the target user, NOT root)
+# Kills the backgrounded dockerd-rootless.sh by pidfile. No systemd.
 
 info()  { echo "[INFO]  $*"; }
 error() { echo "[ERROR] $*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] && error "Run as the rootless user, not root."
 
-if systemctl --user is-active --quiet docker; then
-    info "Stopping and disabling docker user service..."
-    systemctl --user disable --now docker && info "Docker rootless stopped."
+USER_UID=$(id -u)
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$USER_UID}"
+[[ -d "$XDG_RUNTIME_DIR" ]] || export XDG_RUNTIME_DIR="$HOME/.docker/run"
+PIDFILE="$XDG_RUNTIME_DIR/dockerd-rootless.pid"
+
+if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+    PID=$(cat "$PIDFILE")
+    info "Stopping dockerd-rootless (pid $PID)..."
+    kill "$PID"
+    for _ in $(seq 1 20); do
+        kill -0 "$PID" 2>/dev/null || break
+        sleep 0.5
+    done
+    kill -0 "$PID" 2>/dev/null && { info "Still up, sending SIGKILL."; kill -9 "$PID" 2>/dev/null || true; }
+    rm -f "$PIDFILE"
+    info "Docker rootless stopped."
 else
-    info "Docker user service is not running."
+    info "Not running (no live pidfile)."
+    rm -f "$PIDFILE"
 fi

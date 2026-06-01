@@ -18,10 +18,7 @@ id "$TARGET_USER" &>/dev/null || error "User '$TARGET_USER' does not exist."
 
 info "Configuring prerequisites for: $TARGET_USER"
 
-# ── 1. Install uidmap (shadow) ────────────────────────────────────────────────
-
-info "Installing shadow..."
-pacman -Sy --noconfirm --needed shadow
+# ── 1. Check dep (shadow) ────────────────────────────────────────────────────
 
 for bin in newuidmap newgidmap; do
     command -v "$bin" &>/dev/null || error "Required binary not found after install: $bin"
@@ -56,21 +53,9 @@ configure_subid() {
 
 configure_subid /etc/subuid subuid
 configure_subid /etc/subgid subgid
+
+# ── 3. Load needed kernel module ─────────────────────────────────────────────
+
 modprobe ip_tables
-
-# ── 3. Disable system Docker daemon ──────────────────────────────────────────
-
-if systemctl is-active --quiet docker 2>/dev/null || \
-   systemctl is-enabled --quiet docker 2>/dev/null; then
-    info "Disabling system Docker daemon..."
-    systemctl disable --now docker.service docker.socket 2>/dev/null || true
-    rm -f /var/run/docker.sock
-    info "Removed /var/run/docker.sock."
-fi
-
-# ── 4. Enable linger ──────────────────────────────────────────────────────────
-
-loginctl enable-linger "$TARGET_USER"
-info "Linger enabled for $TARGET_USER."
 
 info "Prerequisites done. Now run 01inst as $TARGET_USER."

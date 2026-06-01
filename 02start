@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# Docker Rootless   Run (execute as the target user, NOT root)
-# Exports required env vars and starts the rootless Docker user service.
+# Docker Rootless   Start (run as the target user, NOT root)
+# Backgrounds dockerd-rootless.sh directly. No systemd: works on any init.
 
 info()  { echo "[INFO]  $*"; }
 error() { echo "[ERROR] $*" >&2; exit 1; }
@@ -10,18 +10,49 @@ error() { echo "[ERROR] $*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] && error "Do not run as root. Run as the rootless user."
 
 USER_UID=$(id -u)
-export XDG_RUNTIME_DIR="/run/user/${USER_UID}"
-export DOCKER_HOST="unix:///run/user/${USER_UID}/docker.sock"
+export PATH="$HOME/.local/bin:$PATH"
+
+# XDG_RUNTIME_DIR: use logind's if present, else a user-owned fallback.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$USER_UID}"
+if [[ ! -d "$XDG_RUNTIME_DIR" ]]; then
+    export XDG_RUNTIME_DIR="$HOME/.docker/run"
+    mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 700 "$XDG_RUNTIME_DIR"
+fi
+export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/docker.sock"
+
+PIDFILE="$XDG_RUNTIME_DIR/dockerd-rootless.pid"
+LOG="$XDG_RUNTIME_DIR/dockerd-rootless.log"
 
 info "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
 info "DOCKER_HOST=$DOCKER_HOST"
 
-# ── Start and enable the user Docker service ──────────────────────────────────
-
-if systemctl --user is-active --quiet docker; then
-    info "Docker user service is already running."
-else
-    info "Enabling and starting docker user service..."
-    systemctl --user enable --now docker && info "Docker rootless started."
+if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+    info "Already running (pid $(cat "$PIDFILE"))."
+    exit 0
 fi
 
+command -v dockerd-rootless.sh &>/dev/null \
+    || error "dockerd-rootless.sh not on PATH. Run 01inst first."
+
+info "Starting dockerd-rootless..."
+setsid dockerd-rootless.sh >"$LOG" 2>&1 &
+PID=$!
+echo "$PID" > "$PIDFILE"
+
+# Wait for the socket, but bail the moment our process dies. Checking only for
+# the socket would falsely pass on a pre-existing daemon's socket.
+for _ in $(seq 1 20); do
+    if ! kill -0 "$PID" 2>/dev/null; then
+        rm -f "$PIDFILE"
+        error "dockerd-rootless (pid $PID) exited. Last log lines:
+$(tail -n 5 "$LOG")"
+    fi
+    [[ -S "$XDG_RUNTIME_DIR/docker.sock" ]] && break
+    sleep 0.5
+done
+if kill -0 "$PID" 2>/dev/null && [[ -S "$XDG_RUNTIME_DIR/docker.sock" ]]; then
+    info "Docker rootless started (pid $PID). Log: $LOG"
+else
+    error "Daemon did not come up. Check $LOG."
+fi
