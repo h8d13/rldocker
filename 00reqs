@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Docker Rootless System Prerequisites (run as root)
+# Do once and forget about this script.
 # Installs uidmap, configures subuid/subgid, disables system Docker.
 
 TARGET_USER="${1:-$(logname 2>/dev/null || echo "$SUDO_USER")}"
