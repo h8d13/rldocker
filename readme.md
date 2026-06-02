@@ -11,8 +11,9 @@ Needs: `shadow` (Arch/Artix) `shadow-uidmap` (Alpine) `iptables`
 clash with the rootless one. You can also delete any Docker related packages alltogether.
 
 ```
-sudo ./00reqs <user>   # root: check uidmap, configure subuid/subgid, ip_tables
-./01inst               # user: official get.docker.com/rootless installer
+sudo ./00reqs <user>   # root: check uidmap, configure subuid/subgid, ip_tables/tun
+./01inst               # user: official get.docker.com/rootless installer + logind check/missing ip_tables check
+# fall-back to nf_tables, default on alpine
 ./02start              # user: start the per-user daemon
 ./02stop               # user: stop it
 ```
