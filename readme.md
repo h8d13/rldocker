@@ -11,15 +11,30 @@ Needs: `shadow` (Arch/Artix) `shadow-uidmap` (Alpine) `iptables`
 clash with the rootless one. You can also delete any Docker related packages alltogether.
 
 ```
-sudo ./00reqs <user>   # root: check uidmap, configure subuid/subgid, ip_tables/tun
-./01inst               # user: official get.docker.com/rootless installer + logind check/missing ip_tables check
-# fall-back to nf_tables, default on alpine
+sudo ./00reqs <user>   # root: uidmap, subuid/subgid, load nf_tables (fallback ip_tables) + tun
+./01inst               # user: get.docker.com/rootless installer (handles logind + nft-only kernels)
 ./02start              # user: start the per-user daemon
 ./02stop               # user: stop it
 ```
 
 ## Running containers
 
+Smoke test:
+
 `docker run --rm hello-world`
+
+Hardened defaults (drop all caps, no new privileges, read-only rootfs, tmpfs
+/tmp, no network):
+
+```
+docker run --rm --security-opt no-new-privileges --cap-drop=ALL --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=64m --network none <image> <cmd>
+```
+
+Add network only when a task needs it:
+
+```
+--network bridge --cap-add NET_RAW --cap-add NET_BIND_SERVICE
+```
 
 https://docs.docker.com/engine/security/rootless
