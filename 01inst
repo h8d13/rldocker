@@ -22,9 +22,15 @@ for file in /etc/subuid /etc/subgid; do
         || error "$file: $USER has only $count subordinate IDs (need ≥65536). Run docker-rootless-prereqs.sh first."
 done
 
-export XDG_RUNTIME_DIR="/run/user/${USER_UID}"
-[[ -d "$XDG_RUNTIME_DIR" ]] \
-    || error "XDG_RUNTIME_DIR $XDG_RUNTIME_DIR does not exist is the user session active?"
+# XDG_RUNTIME_DIR: use logind's if present, else a user-owned fallback.
+# Mirrors 02start so a box without logind (no /run/user/$UID) still installs.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$USER_UID}"
+if [[ ! -d "$XDG_RUNTIME_DIR" ]]; then
+    export XDG_RUNTIME_DIR="$HOME/.docker/run"
+    mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 700 "$XDG_RUNTIME_DIR"
+    info "No logind runtime dir using fallback XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+fi
 
 # ── Run official rootless installer ──────────────────────────────────────────
 
@@ -33,6 +39,14 @@ export XDG_RUNTIME_DIR="/run/user/${USER_UID}"
 
 export DOCKER_BIN="${DOCKER_BIN:-$HOME/.local/bin}"
 mkdir -p "$DOCKER_BIN"
+
+# nft-only kernels have no ip_tables.ko, so the installer's `modprobe ip_tables`
+# probe fails. iptables here is the nft backend (xtables-nft) over nf_tables, so
+# the legacy check is irrelevant. Skip it when ip_tables.ko is absent.
+if ! modprobe -n ip_tables &>/dev/null; then
+    info "ip_tables.ko absent (nft-only kernel) setting SKIP_IPTABLES=1."
+    export SKIP_IPTABLES=1
+fi
 
 info "Installing to DOCKER_BIN=$DOCKER_BIN"
 info "Running get.docker.com/rootless installer..."

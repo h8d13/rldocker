@@ -56,6 +56,25 @@ configure_subid /etc/subgid subgid
 
 # ── 3. Load needed kernel module ─────────────────────────────────────────────
 
-modprobe ip_tables
+# Load a netfilter backend. nft-only kernels (most modern ones) ship no
+# ip_tables.ko; there iptables is the nft backend (xtables-nft) needing
+# nf_tables. Order is important here:
+for m in ip_tables nf_tables; do
+    if modprobe "$m"; then
+        info "loaded kernel module: $m"
+        loaded=1
+        break
+    fi
+done
+[[ "${loaded:-}" ]] || info "no netfilter module loaded (likely builtin)   continuing."
+
+# Rootless networking (rootlesskit gvisor-tap-vsock / slirp4netns) needs a TUN
+# device. Bare-metal Alpine ships tun.ko but auto-loads nothing, so /dev/net/tun
+# is absent until loaded. Skip if builtin (modprobe already happy).
+if modprobe tun; then
+    info "loaded kernel module: tun"
+else
+    info "tun not loadable (likely builtin) continuing."
+fi
 
 info "Prerequisites done. Now run 01inst as $TARGET_USER."
