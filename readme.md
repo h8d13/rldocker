@@ -5,7 +5,7 @@ unprivileged user via subuid/subgid mapping.
 
 ## Setup
 
-Needs: `shadow` (Arch/Artix) `shadow-uidmap` (Alpine)
+Needs: `shadow` (Arch/Artix) `shadow-uidmap` (Alpine) `iptables`
 
 If a rootful (system) Docker daemon is running, disable it first so it doesn't
 clash with the rootless one. You can also delete any Docker related packages alltogether.
@@ -20,12 +20,4 @@ sudo ./00reqs <user>   # root: check uidmap, configure subuid/subgid, ip_tables
 
 ## Running containers
 
-Hardened defaults (drop all caps, no new privileges, read-only rootfs, tmpfs
-/tmp, no network):
-
-docker run --rm --security-opt no-new-privileges --cap-drop=ALL --read-only \
-  --tmpfs /tmp:rw,noexec,nosuid,size=64m --network none <image> <cmd>
-
-Add network only when a task needs it:
-
---network bridge --cap-add NET_RAW --cap-add NET_BIND_SERVICE
+`docker run --rm hello-world`
