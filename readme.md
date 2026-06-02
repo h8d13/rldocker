@@ -7,9 +7,8 @@ unprivileged user via subuid/subgid mapping.
 
 Needs: `shadow` (Arch/Artix) `shadow-uidmap` (Alpine) `iptables`
 
-If a rootful (system) Docker daemon is running, disable it first so it doesn't
+> If a rootful (system) Docker daemon is running, disable it first so it doesn't
 clash with the rootless one. You can also delete any Docker related packages alltogether.
-https://docs.docker.com/engine/security/rootless
 
 ```
 sudo ./00reqs <user>   # root: check uidmap, configure subuid/subgid, ip_tables
@@ -21,3 +20,5 @@ sudo ./00reqs <user>   # root: check uidmap, configure subuid/subgid, ip_tables
 ## Running containers
 
 `docker run --rm hello-world`
+
+https://docs.docker.com/engine/security/rootless
